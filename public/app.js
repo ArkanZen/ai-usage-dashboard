@@ -105,7 +105,7 @@ function bindScrollObserver() {
       });
     });
   }, { rootMargin: '0px 0px -75% 0px', threshold: 0 });
-  ['overview', 'trend', 'projects', 'calendar', 'models', 'source'].forEach((id) => {
+  ['overview', 'trend', 'calendar', 'projects', 'models', 'source'].forEach((id) => {
     const el = document.getElementById(id);
     if (el) observer.observe(el);
   });
@@ -422,7 +422,7 @@ function getFirstWeekday(month, timeZone) {
  */
 function renderCalendar(view) {
   const weekdays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
-  const leadingEmptyDays = getFirstWeekday(view.month, state.report.timeZone);
+  const leadingEmptyDays = getFirstWeekday(view.month, state.report.timeZone || 'UTC');
   const maxTokens = Math.max(...view.daily.map((day) => day.totalTokens), 1);
   const weekdayHtml = weekdays.map((day) => `<div class="weekday">${day}</div>`).join('');
   const emptyHtml = Array.from({ length: leadingEmptyDays }, () => '<div class="day empty"></div>').join('');
