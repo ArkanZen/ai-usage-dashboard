@@ -4,6 +4,8 @@ const state = {
   selectedTool: 'all',
   selectedProject: '',
   selectedDate: '',
+  projectsExpanded: false,
+  modelsExpanded: false,
   settings: loadSourceSettings()
 };
 
@@ -80,11 +82,17 @@ function bindEvents() {
     renderSourceSettings();
     loadReport({ forceRefresh: true });
   });
-  elements.monthSelect.addEventListener('change', () => loadReport());
+  elements.monthSelect.addEventListener('change', () => {
+    state.projectsExpanded = false;
+    state.modelsExpanded = false;
+    loadReport();
+  });
   elements.toolSelect.addEventListener('change', () => {
     state.selectedTool = elements.toolSelect.value;
     state.selectedProject = '';
     state.selectedDate = '';
+    state.projectsExpanded = false;
+    state.modelsExpanded = false;
     render();
   });
 }
@@ -454,7 +462,9 @@ function renderCalendar(view) {
  * @throws {Error} 不抛出异常。
  */
 function renderProjects(view) {
-  elements.projectList.innerHTML = renderRows(visibleRows(view.projects).slice(0, 8), view.summary.totalTokens, 'PROJECT', 'project');
+  const allRows = visibleRows(view.projects);
+  const rows = state.projectsExpanded ? allRows : allRows.slice(0, 8);
+  elements.projectList.innerHTML = renderRows(rows, view.summary.totalTokens, 'PROJECT', 'project');
   elements.projectList.querySelectorAll('.data-row[data-name]').forEach((node) => {
     if (node.dataset.name === state.selectedProject) node.classList.add('selected');
     node.addEventListener('click', () => {
@@ -462,6 +472,16 @@ function renderProjects(view) {
       renderProjectDetail(view);
     });
   });
+  if (allRows.length > 8) {
+    const btn = document.createElement('button');
+    btn.className = 'expand-btn';
+    btn.textContent = state.projectsExpanded ? '收起' : `展开全部 (${allRows.length})`;
+    btn.addEventListener('click', () => {
+      state.projectsExpanded = !state.projectsExpanded;
+      renderProjects(view);
+    });
+    elements.projectList.appendChild(btn);
+  }
 }
 
 /**
@@ -471,7 +491,19 @@ function renderProjects(view) {
  * @throws {Error} 不抛出异常。
  */
 function renderModels(view) {
-  elements.modelList.innerHTML = renderRows(visibleRows(view.models).slice(0, 10), view.summary.totalTokens, 'MODEL');
+  const allRows = visibleRows(view.models);
+  const rows = state.modelsExpanded ? allRows : allRows.slice(0, 10);
+  elements.modelList.innerHTML = renderRows(rows, view.summary.totalTokens, 'MODEL');
+  if (allRows.length > 10) {
+    const btn = document.createElement('button');
+    btn.className = 'expand-btn';
+    btn.textContent = state.modelsExpanded ? '收起' : `展开全部 (${allRows.length})`;
+    btn.addEventListener('click', () => {
+      state.modelsExpanded = !state.modelsExpanded;
+      renderModels(view);
+    });
+    elements.modelList.appendChild(btn);
+  }
 }
 
 /**
