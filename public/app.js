@@ -433,13 +433,17 @@ function renderCalendar(view) {
   const weekdays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
   const leadingEmptyDays = getFirstWeekday(view.month, state.report.timeZone || 'UTC');
   const maxTokens = Math.max(...view.daily.map((day) => day.totalTokens), 1);
-  const weekdayHtml = weekdays.map((day) => `<div class="weekday">${day}</div>`).join('');
-  const emptyHtml = Array.from({ length: leadingEmptyDays }, () => '<div class="day empty"></div>').join('');
-  const dayHtml = view.daily.map((day) => {
+  const weekdayHtml = weekdays.map((day, i) => `<div class="weekday${i >= 5 ? ' weekend' : ''}">${day}</div>`).join('');
+  const emptyHtml = Array.from({ length: leadingEmptyDays }, (_, i) => {
+    const col = i % 7;
+    return `<div class="day empty${col >= 5 ? ' weekend' : ''}"></div>`;
+  }).join('');
+  const dayHtml = view.daily.map((day, i) => {
+    const col = (leadingEmptyDays + i) % 7;
     const level = calendarLevel(day.totalTokens, maxTokens);
     const tool = dominantToolName(view, day);
     return `
-      <div class="day ${level}" data-date="${day.date}" title="${day.date}：${formatFullTokens(day.totalTokens)} tokens">
+      <div class="day ${level}${col >= 5 ? ' weekend' : ''}" data-date="${day.date}" title="${day.date}：${formatFullTokens(day.totalTokens)} tokens">
         <span class="date">${day.date.slice(-2)}</span>
         <span class="tokens">${formatCompactTokens(day.totalTokens)}</span>
         <span class="tools">${day.totalTokens ? toolLabel(tool) : '-'}</span>

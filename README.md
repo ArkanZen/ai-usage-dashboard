@@ -1,28 +1,91 @@
-# AI 使用洞察仪表盘
+# AI Usage Dashboard
 
-本项目用于在本机查看 Codex 与 Claude CLI 的使用情况，按月份聚合每日 token、会话、调用、项目和模型分布。
+A lightweight local dashboard that reads your AI CLI tool logs and gives you a clear view of token usage, session activity, projects, and model distribution — all without sending any data anywhere.
 
-## 启动
+Supports **Claude Code (Claude CLI)**, **OpenAI Codex CLI**, and **Gemini CLI**.
+
+## Features
+
+- Monthly overview: total tokens, sessions, tool calls, cache ratio
+- Daily trend bar chart with per-day drill-down
+- Monthly calendar heatmap (with weekend highlights)
+- Project-level breakdown with per-model sparklines
+- Model distribution table
+- Filter by tool (Claude / Codex / Gemini) or view all together
+- Day-detail modal with project/model breakdown
+- Custom data root paths and timezone via query params
+- Zero dependencies — pure Node.js ESM, no build step
+
+## Quick Start
+
+```bash
+node src/server.js
+```
+
+Then open [http://localhost:4173](http://localhost:4173).
+
+Or with the npm alias:
 
 ```bash
 npm start
 ```
 
-默认地址：
+## Data Sources
 
-```text
-http://localhost:4173
+The server scans local JSONL log files **read-only**. No keys, tokens, or credentials are ever read.
+
+| Tool | Default log path |
+|------|-----------------|
+| Claude CLI | `~/.claude/projects/**/*.jsonl` |
+| Codex CLI | `~/.codex/sessions/YYYY/MM/*.jsonl` |
+| Gemini CLI | `~/.gemini/tmp/*/chats/*.jsonl` |
+
+### Custom paths
+
+Append query params to override defaults:
+
+```
+/api/usage?month=2026-05&claudeRoot=/path/to/.claude&codexRoot=/path/to/.codex&geminiRoot=/path/to/.gemini&timeZone=America/New_York
 ```
 
-## 数据源
+## Requirements
 
-- Codex：`~/.codex/sessions`
-- Claude CLI：`~/.claude/projects`
+- Node.js ≥ 20
+- No `npm install` needed — zero external dependencies
 
-服务端只读扫描本地 JSONL 日志，不读取密钥、Token、密码等敏感配置。
-
-## 测试
+## Tests
 
 ```bash
 npm test
 ```
+
+To run a single file:
+
+```bash
+node --test test/usageParser.test.js
+```
+
+## Architecture
+
+```
+src/
+  server.js        # HTTP server, two API endpoints + static serving
+  usageParser.js   # JSONL log parsing for all three CLI tools
+public/
+  index.html       # Single-page UI shell
+  app.js           # Vanilla JS — API calls, charts, modal wiring
+  modal.js         # Day/project detail modal with keyboard nav
+  styles.css       # Dark-theme CSS, no framework
+test/
+  usageParser.test.js
+  fixtures/        # Deterministic JSONL fixtures for all three parsers
+```
+
+API:
+
+- `GET /api/usage?month=YYYY-MM` — parse logs and return aggregated report (5-min cache; pass `refresh=1` to bust)
+- `GET /api/months` — list of recent 18 months for the month picker
+
+## License
+
+MIT

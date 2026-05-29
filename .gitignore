@@ -1,0 +1,14 @@
+# gstack internal runtime files (contain tokens/PIDs)
+.gstack/
+
+# Claude Code local settings (per-machine permissions)
+.claude/settings.local.json
+
+# Internal planning/design docs
+docs/superpowers
+
+# macOS
+.DS_Store
+
+# Node
+node_modules/

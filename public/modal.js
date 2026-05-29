@@ -5,18 +5,20 @@ overlay.id = 'modal-overlay';
 overlay.setAttribute('role', 'dialog');
 overlay.setAttribute('aria-modal', 'true');
 overlay.innerHTML = `
+  <button class="modal-prev" aria-label="上一个">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+  </button>
   <div class="modal">
     <button class="modal-close" aria-label="关闭">×</button>
-    <div class="modal-nav">
-      <button class="modal-prev" aria-label="上一个">←</button>
-      <div class="modal-title">
-        <h3 id="modal-heading"></h3>
-        <span class="chip" id="modal-chip"></span>
-      </div>
-      <button class="modal-next" aria-label="下一个">→</button>
+    <div class="modal-title">
+      <h3 id="modal-heading"></h3>
+      <span class="chip" id="modal-chip"></span>
     </div>
     <div class="modal-body" id="modal-body"></div>
   </div>
+  <button class="modal-next" aria-label="下一个">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+  </button>
 `;
 document.body.appendChild(overlay);
 
