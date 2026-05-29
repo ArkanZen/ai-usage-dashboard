@@ -1,0 +1,1 @@
+{"id":"gemini-msg-1","timestamp":"2026-05-06T03:00:00.000Z","type":"gemini","tokens":{"input":70,"output":20,"cached":10,"thoughts":5,"tool":3,"total":108},"model":"gemini-test","toolCalls":[{"name":"read_file"}]}

@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 使用洞察仪表盘</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="shell">
+    <div class="loading-overlay" id="loading-overlay" aria-live="polite">
+      <div class="loader-panel">
+        <div class="loader-grid"></div>
+        <strong>正在聚合本地 AI 使用日志</strong>
+        <span id="loading-text">首次读取可能需要几秒，之后会使用月度缓存。</span>
+      </div>
+    </div>
+
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">AI</div>
+        <div>
+          <h1>AI Usage Console</h1>
+          <p>本地 CLI 使用洞察</p>
+        </div>
+      </div>
+      <nav class="nav">
+        <a class="active" href="#overview">总览</a>
+        <a href="#trend">趋势分析</a>
+        <a href="#calendar">日历视图</a>
+        <a href="#projects">项目维度</a>
+        <a href="#models">模型维度</a>
+        <a href="#source">数据源设置</a>
+      </nav>
+      <div class="sidebar-note">
+        <span>数据源</span>
+        <strong>Codex · ~/.codex</strong>
+        <strong>Claude · ~/.claude</strong>
+        <strong>Gemini · ~/.gemini</strong>
+      </div>
+    </aside>
+
+    <section class="main">
+      <header class="topbar" id="overview">
+        <div>
+          <h2 id="page-title">AI 使用洞察</h2>
+          <p>按本地日志统计 Codex 与 Claude CLI 的 token、会话、调用、缓存、项目和模型分布。</p>
+        </div>
+        <div class="filters">
+          <label>
+            <span>月份</span>
+            <select id="month-select"></select>
+          </label>
+          <label>
+            <span>工具</span>
+            <select id="tool-select">
+              <option value="all">全部</option>
+              <option value="Codex">Codex</option>
+              <option value="Claude CLI">Claude CLI</option>
+              <option value="Gemini CLI">Gemini CLI</option>
+            </select>
+          </label>
+          <button id="refresh-button" type="button">刷新</button>
+        </div>
+      </header>
+
+      <section class="cards">
+        <article class="card">
+          <div class="label">总 token <span>ALL</span></div>
+          <div class="value" id="total-tokens">-</div>
+          <div class="delta" id="token-detail">输入/输出/缓存拆分</div>
+        </article>
+        <article class="card">
+          <div class="label">活跃天数 <span>DAYS</span></div>
+          <div class="value" id="active-days">-</div>
+          <div class="delta" id="peak-day">峰值日期</div>
+        </article>
+        <article class="card">
+          <div class="label">模型调用 <span>REQ</span></div>
+          <div class="value" id="calls">-</div>
+          <div class="delta" id="sessions">会话数</div>
+        </article>
+        <article class="card">
+          <div class="label">活跃项目 <span>PROJECTS</span></div>
+          <div class="value" id="project-count">-</div>
+          <div class="delta" id="model-count">模型维度</div>
+        </article>
+      </section>
+
+      <section class="trend-grid">
+        <article class="panel trend-panel" id="trend">
+          <div class="panel-head">
+            <h3>每日 token 趋势</h3>
+            <span class="chip">柱状图显示具体 token</span>
+          </div>
+          <div class="chart-wrap">
+            <div class="bar-chart" id="bar-chart"></div>
+          </div>
+        </article>
+      </section>
+
+      <section class="project-calendar-grid">
+        <article class="panel" id="projects">
+          <div class="panel-head">
+            <h3>项目用量排行</h3>
+            <span class="chip">TOP CWD</span>
+          </div>
+          <div class="data-list" id="project-list"></div>
+        </article>
+
+        <section class="panel calendar-panel" id="calendar">
+          <div class="panel-head">
+            <h3>月度日历视图</h3>
+            <span class="chip">每日具体 token</span>
+          </div>
+          <div class="calendar" id="calendar-grid"></div>
+        </section>
+      </section>
+
+      <section class="metric-grid">
+        <article class="panel">
+          <div class="panel-head">
+            <h3>工具占比</h3>
+            <span class="chip">SHARE</span>
+          </div>
+          <div class="metric-bars" id="tool-share"></div>
+        </article>
+        <article class="panel">
+          <div class="panel-head">
+            <h3>Token 构成</h3>
+            <span class="chip">INPUT / OUTPUT</span>
+          </div>
+          <div class="metric-bars" id="token-parts"></div>
+        </article>
+      </section>
+
+      <section class="panel model-panel" id="models">
+        <div class="panel-head">
+          <h3>模型维度</h3>
+          <span class="chip">MODEL</span>
+        </div>
+        <div class="data-list model-list" id="model-list"></div>
+      </section>
+
+      <section class="detail-grid">
+        <article class="panel detail-panel" id="project-detail">
+          <div class="panel-head">
+            <h3>项目详情</h3>
+            <span class="chip" id="project-detail-chip">点击项目排行</span>
+          </div>
+          <div id="project-detail-body" class="detail-body"></div>
+        </article>
+
+        <article class="panel detail-panel" id="day-detail">
+          <div class="panel-head">
+            <h3>日期详情</h3>
+            <span class="chip" id="day-detail-chip">点击日历日期</span>
+          </div>
+          <div id="day-detail-body" class="detail-body"></div>
+        </article>
+      </section>
+
+      <section class="panel source-panel" id="source">
+        <details id="source-settings" open>
+          <summary>
+            <span>数据源设置</span>
+            <small>默认读取当前用户目录，也可手动选择 Windows / macOS / Linux 路径</small>
+          </summary>
+          <div class="source-list">
+            <label class="source-card">
+              <span>Codex</span>
+              <small>默认 ~/.codex</small>
+              <input id="codex-root" type="text" placeholder="留空使用默认目录">
+            </label>
+            <label class="source-card">
+              <span>Claude CLI</span>
+              <small>默认 ~/.claude</small>
+              <input id="claude-root" type="text" placeholder="留空使用默认目录">
+            </label>
+            <label class="source-card">
+              <span>Gemini CLI</span>
+              <small>默认 ~/.gemini</small>
+              <input id="gemini-root" type="text" placeholder="留空使用默认目录">
+            </label>
+          </div>
+          <div class="source-controls">
+            <label>
+              <span>统计时区</span>
+              <select id="timezone-select">
+                <option value="Asia/Shanghai">Asia/Shanghai</option>
+                <option value="UTC">UTC</option>
+                <option value="America/Los_Angeles">America/Los_Angeles</option>
+                <option value="America/New_York">America/New_York</option>
+                <option value="Europe/London">Europe/London</option>
+                <option value="Europe/Berlin">Europe/Berlin</option>
+                <option value="Asia/Tokyo">Asia/Tokyo</option>
+                <option value="Asia/Singapore">Asia/Singapore</option>
+              </select>
+            </label>
+            <div class="source-actions">
+              <button id="save-source-button" type="button">保存设置</button>
+              <button id="reset-source-button" type="button">恢复默认</button>
+            </div>
+          </div>
+          <p class="source-help">Windows 示例：C:\Users\alice\.gemini；macOS/Linux 示例：/Users/alice/.gemini。只读取聚合所需的本地 JSONL 日志。</p>
+        </details>
+      </section>
+
+      <section class="panel notes-panel">
+        <div class="panel-head">
+          <h3>统计口径说明</h3>
+          <span class="chip">LOCAL ONLY</span>
+        </div>
+        <ul class="notes-list">
+          <li>只读取本机日志目录中的聚合字段，不展示 prompt、回复正文、密钥或凭证。</li>
+          <li>Codex 使用 token_count 的 last_token_usage；Claude CLI 按 assistant message usage 去重；Gemini CLI 使用 tokens 字段。</li>
+          <li>模型和项目列表会过滤 0 token 的占位项，例如未知模型或 synthetic 事件。</li>
+          <li>环比上月按当前筛选工具和同一数据源配置计算；上月无数据时显示“无上月数据”。</li>
+        </ul>
+      </section>
+
+      <p class="status" id="status">正在读取本地日志...</p>
+    </section>
+  </main>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
