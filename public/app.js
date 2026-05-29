@@ -56,6 +56,7 @@ const elements = {
  */
 async function init() {
   bindEvents();
+  bindScrollObserver();
   renderSourceSettings();
   await loadMonths();
   await loadReport();
@@ -85,6 +86,28 @@ function bindEvents() {
     state.selectedProject = '';
     state.selectedDate = '';
     render();
+  });
+}
+
+/**
+ * 绑定侧边栏导航滚动高亮观察器。
+ * @returns {void} 无返回值。
+ * @throws {Error} 不抛出异常。
+ */
+function bindScrollObserver() {
+  const navLinks = [...document.querySelectorAll('.nav a')];
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (!entry.isIntersecting) return;
+      const id = entry.target.id;
+      navLinks.forEach((link) => {
+        link.classList.toggle('active', link.getAttribute('href') === `#${id}`);
+      });
+    });
+  }, { rootMargin: '0px 0px -75% 0px', threshold: 0 });
+  ['overview', 'trend', 'projects', 'calendar', 'models', 'source'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) observer.observe(el);
   });
 }
 
@@ -176,6 +199,22 @@ function buildUsageQuery(month, forceRefresh) {
 }
 
 /**
+ * 更新侧边栏数据源路径显示。
+ * @returns {void} 无返回值。
+ * @throws {Error} 不抛出异常。
+ */
+function updateSidebarPaths() {
+  const defaults = ['~/.codex', '~/.claude', '~/.gemini'];
+  const values = [state.settings.codexRoot, state.settings.claudeRoot, state.settings.geminiRoot];
+  const tools = ['Codex', 'Claude', 'Gemini'];
+  document.querySelectorAll('.sidebar-note strong').forEach((el, i) => {
+    const raw = values[i] || defaults[i];
+    const display = raw.length > 22 ? `…${raw.slice(-20)}` : raw;
+    el.textContent = `${tools[i]} · ${display}`;
+  });
+}
+
+/**
  * 将当前数据源设置渲染到表单。
  * @returns {void} 无返回值。
  * @throws {Error} 不抛出异常。
@@ -185,6 +224,7 @@ function renderSourceSettings() {
   elements.claudeRoot.value = state.settings.claudeRoot;
   elements.geminiRoot.value = state.settings.geminiRoot;
   elements.timezoneSelect.value = state.settings.timeZone;
+  updateSidebarPaths();
 }
 
 /**
@@ -361,6 +401,20 @@ function renderBarChart(view) {
 }
 
 /**
+ * 获取某月第一天是星期几（周一=0，周日=6），使用指定时区。
+ * @param {string} month 月份，格式 YYYY-MM。
+ * @param {string} timeZone 时区字符串。
+ * @returns {number} 返回 0-6 的星期偏移。
+ * @throws {Error} 不抛出异常。
+ */
+function getFirstWeekday(month, timeZone) {
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone, weekday: 'short' })
+    .formatToParts(new Date(`${month}-01T12:00:00Z`));
+  const day = parts.find((p) => p.type === 'weekday').value;
+  return { Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6 }[day] ?? 0;
+}
+
+/**
  * 渲染月度日历视图，每个日期显示具体 token 数。
  * @param {object} view 当前视图数据。
  * @returns {void} 无返回值。
@@ -368,8 +422,7 @@ function renderBarChart(view) {
  */
 function renderCalendar(view) {
   const weekdays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
-  const firstDate = new Date(`${view.month}-01T00:00:00+08:00`);
-  const leadingEmptyDays = (firstDate.getDay() + 6) % 7;
+  const leadingEmptyDays = getFirstWeekday(view.month, state.report.timeZone);
   const maxTokens = Math.max(...view.daily.map((day) => day.totalTokens), 1);
   const weekdayHtml = weekdays.map((day) => `<div class="weekday">${day}</div>`).join('');
   const emptyHtml = Array.from({ length: leadingEmptyDays }, () => '<div class="day empty"></div>').join('');
@@ -386,6 +439,7 @@ function renderCalendar(view) {
   }).join('');
   elements.calendarGrid.innerHTML = `${weekdayHtml}${emptyHtml}${dayHtml}`;
   elements.calendarGrid.querySelectorAll('.day[data-date]').forEach((node) => {
+    if (node.dataset.date === state.selectedDate) node.classList.add('selected');
     node.addEventListener('click', () => {
       state.selectedDate = node.dataset.date;
       renderDayDetail(view);
@@ -402,6 +456,7 @@ function renderCalendar(view) {
 function renderProjects(view) {
   elements.projectList.innerHTML = renderRows(visibleRows(view.projects).slice(0, 8), view.summary.totalTokens, 'PROJECT', 'project');
   elements.projectList.querySelectorAll('.data-row[data-name]').forEach((node) => {
+    if (node.dataset.name === state.selectedProject) node.classList.add('selected');
     node.addEventListener('click', () => {
       state.selectedProject = node.dataset.name;
       renderProjectDetail(view);
