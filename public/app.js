@@ -1,3 +1,5 @@
+import { openModal } from './modal.js';
+
 const state = {
   report: null,
   previousReport: null,
@@ -44,11 +46,7 @@ const elements = {
   projectList: document.querySelector('#project-list'),
   modelList: document.querySelector('#model-list'),
   toolShare: document.querySelector('#tool-share'),
-  tokenParts: document.querySelector('#token-parts'),
-  projectDetailChip: document.querySelector('#project-detail-chip'),
-  projectDetailBody: document.querySelector('#project-detail-body'),
-  dayDetailChip: document.querySelector('#day-detail-chip'),
-  dayDetailBody: document.querySelector('#day-detail-body')
+  tokenParts: document.querySelector('#token-parts')
 };
 
 /**
@@ -301,8 +299,6 @@ function render() {
   renderModels(view);
   renderToolShare(view);
   renderTokenParts(view);
-  renderProjectDetail(view);
-  renderDayDetail(view);
 }
 
 /**
@@ -396,8 +392,9 @@ function renderBarChart(view) {
     const height = day.totalTokens ? Math.max(2, Math.round((day.totalTokens / maxTokens) * 100)) : 2;
     const dominantTool = dominantToolName(view, day);
     const className = day.totalTokens === 0 ? 'bar zero' : dominantTool === 'Claude CLI' ? 'bar claude' : dominantTool === 'Gemini CLI' ? 'bar gemini' : 'bar';
+    const barDateAttr = day.totalTokens ? ` data-bar-date="${day.date}"` : '';
     return `
-      <div class="bar-item" title="${day.date}：${formatFullTokens(day.totalTokens)} tokens">
+      <div class="bar-item"${barDateAttr} title="${day.date}：${formatFullTokens(day.totalTokens)} tokens">
         <div class="bar-track">
           <div class="bar-value" style="bottom:calc(${height}% + 6px)">${formatCompactTokens(day.totalTokens)}</div>
           <div class="${className}" style="height:${height}%"></div>
@@ -406,6 +403,10 @@ function renderBarChart(view) {
       </div>
     `;
   }).join('');
+  elements.barChart.querySelectorAll('[data-bar-date]').forEach((node) => {
+    node.style.cursor = 'pointer';
+    node.addEventListener('click', () => openDayModal(node.dataset.barDate));
+  });
 }
 
 /**
@@ -449,8 +450,12 @@ function renderCalendar(view) {
   elements.calendarGrid.querySelectorAll('.day[data-date]').forEach((node) => {
     if (node.dataset.date === state.selectedDate) node.classList.add('selected');
     node.addEventListener('click', () => {
+      const day = view.daily.find((d) => d.date === node.dataset.date);
+      if (!day?.totalTokens) return;
       state.selectedDate = node.dataset.date;
-      renderDayDetail(view);
+      elements.calendarGrid.querySelectorAll('.day').forEach((d) => d.classList.remove('selected'));
+      node.classList.add('selected');
+      openDayModal(node.dataset.date);
     });
   });
 }
@@ -468,8 +473,11 @@ function renderProjects(view) {
   elements.projectList.querySelectorAll('.data-row[data-name]').forEach((node) => {
     if (node.dataset.name === state.selectedProject) node.classList.add('selected');
     node.addEventListener('click', () => {
-      state.selectedProject = node.dataset.name;
-      renderProjectDetail(view);
+      const name = node.dataset.name;
+      state.selectedProject = name;
+      elements.projectList.querySelectorAll('.data-row').forEach((r) => r.classList.remove('selected'));
+      node.classList.add('selected');
+      openProjectModal(name);
     });
   });
   if (allRows.length > 8) {
@@ -564,71 +572,6 @@ function renderRows(rows, totalTokens, fallbackTag, rowType = '') {
     const typeAttr = rowType ? ` data-type="${rowType}" data-name="${escapeHtml(row.name)}"` : '';
     return `<div class="data-row"${typeAttr}><span>${escapeHtml(row.name)}</span><span>${formatCompactTokens(row.totalTokens)}</span><span class="tag">${tag}</span></div>`;
   }).join('');
-}
-
-/**
- * 渲染当前选中项目的工具、模型和每日趋势。
- * @param {object} view 当前视图数据。
- * @returns {void} 无返回值。
- * @throws {Error} 不抛出异常。
- */
-function renderProjectDetail(view) {
-  const project = view.projects.find((item) => item.name === state.selectedProject) || visibleRows(view.projects)[0];
-  if (!project) {
-    elements.projectDetailChip.textContent = '暂无项目';
-    elements.projectDetailBody.innerHTML = '<p class="empty-text">当前筛选条件下暂无项目数据。</p>';
-    return;
-  }
-  state.selectedProject = project.name;
-  const daily = view.daily.map((day) => {
-    const item = day.projects?.find((entry) => entry.name === project.name);
-    return { date: day.date, totalTokens: item?.totalTokens || 0 };
-  });
-  const models = summarizeNestedDimension(view.daily, 'projects', project.name, 'models');
-  elements.projectDetailChip.textContent = project.name;
-  elements.projectDetailBody.innerHTML = `
-    <div class="detail-summary">
-      <span>总量 <strong>${formatCompactTokens(project.totalTokens)}</strong></span>
-      <span>调用 <strong>${formatInteger(project.calls)}</strong></span>
-      <span>会话 <strong>${formatInteger(project.sessions)}</strong></span>
-    </div>
-    <div class="sparkline" style="--day-count:${daily.length}">${renderSparkline(daily)}</div>
-    <h4>工具拆分</h4>
-    <div class="data-list">${renderRows(visibleRows(project.tools || []).slice(0, 4), project.totalTokens, 'TOOL')}</div>
-    <h4>模型拆分</h4>
-    <div class="data-list">${renderRows(visibleRows(models).slice(0, 4), project.totalTokens, 'MODEL')}</div>
-  `;
-}
-
-/**
- * 渲染当前选中日期的工具、项目和模型拆分。
- * @param {object} view 当前视图数据。
- * @returns {void} 无返回值。
- * @throws {Error} 不抛出异常。
- */
-function renderDayDetail(view) {
-  const day = view.daily.find((item) => item.date === state.selectedDate)
-    || view.daily.reduce((current, item) => item.totalTokens > current.totalTokens ? item : current, view.daily[0]);
-  if (!day || !day.totalTokens) {
-    elements.dayDetailChip.textContent = '暂无日期';
-    elements.dayDetailBody.innerHTML = '<p class="empty-text">当前筛选条件下暂无日期数据。</p>';
-    return;
-  }
-  state.selectedDate = day.date;
-  elements.dayDetailChip.textContent = day.date;
-  elements.dayDetailBody.innerHTML = `
-    <div class="detail-summary">
-      <span>总量 <strong>${formatCompactTokens(day.totalTokens)}</strong></span>
-      <span>调用 <strong>${formatInteger(day.calls)}</strong></span>
-      <span>会话 <strong>${formatInteger(day.sessions)}</strong></span>
-    </div>
-    <h4>工具拆分</h4>
-    <div class="data-list">${renderRows(visibleRows(day.tools || []), day.totalTokens, 'TOOL')}</div>
-    <h4>项目拆分</h4>
-    <div class="data-list">${renderRows(visibleRows(day.projects || []).slice(0, 5), day.totalTokens, 'PROJECT')}</div>
-    <h4>模型拆分</h4>
-    <div class="data-list">${renderRows(visibleRows(day.models || []).slice(0, 5), day.totalTokens, 'MODEL')}</div>
-  `;
 }
 
 /**
@@ -833,6 +776,74 @@ function formatInteger(value) {
  */
 function formatDateTime(isoTime) {
   return new Date(isoTime).toLocaleString('zh-CN', { hour12: false });
+}
+
+function formatDayHeading(dateStr, timeZone) {
+  const weekday = new Intl.DateTimeFormat('zh-CN', { timeZone, weekday: 'short' })
+    .format(new Date(`${dateStr}T12:00:00Z`));
+  return `${dateStr}（${weekday}）`;
+}
+
+function renderProjectModalContent(project, index, total, view) {
+  const daily = view.daily.map((day) => ({
+    date: day.date,
+    totalTokens: day.projects?.find((p) => p.name === project.name)?.totalTokens || 0
+  }));
+  const models = summarizeNestedDimension(view.daily, 'projects', project.name, 'models');
+  const base = Math.max(project.totalTokens, 1);
+  return {
+    heading: project.name,
+    chip: `第 ${index + 1} / ${total} 个项目`,
+    bodyHtml: `
+      <div class="detail-summary">
+        <span>总量 <strong>${formatCompactTokens(project.totalTokens)}</strong></span>
+        <span>调用 <strong>${formatInteger(project.calls)}</strong></span>
+        <span>会话 <strong>${formatInteger(project.sessions)}</strong></span>
+      </div>
+      <h4>本月每日趋势</h4>
+      <div class="sparkline" style="--day-count:${daily.length}">${renderSparkline(daily)}</div>
+      <h4>工具拆分</h4>
+      <div class="data-list">${renderRows(visibleRows(project.tools || []), base, 'TOOL')}</div>
+      <h4>模型拆分</h4>
+      <div class="data-list">${renderRows(visibleRows(models).slice(0, 6), base, 'MODEL')}</div>
+    `
+  };
+}
+
+function renderDayModalContent(day, index, total, timeZone) {
+  return {
+    heading: formatDayHeading(day.date, timeZone),
+    chip: `第 ${index + 1} / ${total} 个活跃日`,
+    bodyHtml: `
+      <div class="detail-summary">
+        <span>总量 <strong>${formatCompactTokens(day.totalTokens)}</strong></span>
+        <span>调用 <strong>${formatInteger(day.calls)}</strong></span>
+        <span>会话 <strong>${formatInteger(day.sessions)}</strong></span>
+      </div>
+      <h4>工具拆分</h4>
+      <div class="data-list">${renderRows(visibleRows(day.tools || []), day.totalTokens, 'TOOL')}</div>
+      <h4>项目拆分</h4>
+      <div class="data-list">${renderRows(visibleRows(day.projects || []).slice(0, 5), day.totalTokens, 'PROJECT')}</div>
+      <h4>模型拆分</h4>
+      <div class="data-list">${renderRows(visibleRows(day.models || []).slice(0, 5), day.totalTokens, 'MODEL')}</div>
+    `
+  };
+}
+
+function openProjectModal(projectName) {
+  const view = buildFilteredView(state.report, state.selectedTool);
+  const items = visibleRows(view.projects);
+  const index = items.findIndex((p) => p.name === projectName);
+  if (index === -1) return;
+  openModal({ items, index, renderContent: (item, idx, total) => renderProjectModalContent(item, idx, total, view) });
+}
+
+function openDayModal(date) {
+  const view = buildFilteredView(state.report, state.selectedTool);
+  const items = view.daily.filter((d) => d.totalTokens > 0);
+  const index = items.findIndex((d) => d.date === date);
+  if (index === -1) return;
+  openModal({ items, index, renderContent: (item, idx, total) => renderDayModalContent(item, idx, total, state.report.timeZone) });
 }
 
 /**
